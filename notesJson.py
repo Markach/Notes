@@ -1,129 +1,79 @@
 ### я отдельно поработала с приложением, используя формат JSON. Мне легче дается возможность использовать формат сохранения данных sqlite, поэтому я и работала с ним в приложении 
 
+import argparse
 import json
-
-def createJson():  
-    mydict = [ 
-        {
-            'id': 1,
-            'title': 'Lesson',
-            'body': 'first lecture on testing',
-            'date': '2023-02-10'
-        },
-        {
-            'id': 2,
-            'title': 'Postcard',
-            'body': 'send on wednesday',
-            'date': '2023-02-15'
-        },
-        {
-            'id': 3,
-            'title': 'Dinner',
-            'body': 'gala dinner on Friday',
-            'date': '2023-02-15'
-        }
-    ]
-    try:
-        with open('data.json', 'w', encoding='utf-8') as fs:  # октрытие файла и его значение присваеиваем переменнной
-            json.dump(mydict, fs, indent=2)  # дополняем перемеенную, нашим словарем   можно сортировать sort_key=True
-    except IOError as e:  # в случае возникновения ошибки
-        print(e)  # выводит сообщение об ошибке
-    print('Сохранение данных завершено!')
-createJson()
+import datetime
+import os
 
 
+def load_notes(file_path):
+    """Загрузка заметок из файла"""
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as file:
+            return json.load(file)
+    return []
 
-# читаем файл
-def loadData():
-    try:
-        with open('data.json') as f:
-            data = json.load(f)
-            return data
-    finally:
-        f.close()
 
-# сохраняем в файл
-def writeFile(newData):
-    try:
-        with open('data.json', 'w') as f:
-            json.dump(newData, f, indent=2)
-    finally:
-        f.close()  
+def save_notes(notes, file_path):
+    """Сохранение заметок в файл"""
+    with open(file_path, 'w') as file:
+        json.dump(notes, file, indent=4)
 
-# добавляем новые данные
-def addData(data):
-    loadedData = loadData()
-    dublicateCount = 0
-    for d in loadedData:
-        if data['title'] in d['title']:
-            print(d['title'])
-            dublicateCount += 1
-    if dublicateCount == 0:
-        loadedData.append(data)
-        writeFile(loadedData)
-        print('\n\nnote added!')
-    else:
-        print('title already exists!')  
 
-def addNote():
-    print('\nAdd Note\n')
-    id = input('id: ')
-    title = input('Title: ')
-    body = input('body: ')
-    date = input('date: ')
-    data = {'id':id, 'title': title, 'body': body, 'date': date}
-    addData(data)  
-# addNote()  
-                      
+def add_note(notes, title, body):
+    """Добавление заметки"""
+    new_note = {
+        'id': len(notes) + 1,
+        'title': title,
+        'body': body,
+        'created_at': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'updated_at': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+    notes.append(new_note)
+    return new_note
 
-# выводим заметки
-def listNotes():
-    loadedData = loadData()
-    print('\nID\tTitle\n')
-    for data in loadedData:
-        print(str(loadedData.index(data)+1) + '\t' + data['title'])
-    print()
 
-# удаление заметки
-def removeNote(taskID):
-    loadedData = loadData()
-    itemIndex = None
-    for data in loadedData:
-        if taskID == loadedData.index(data)+1:
-            itemIndex = loadedData.index(data)
-    if(itemIndex != None):
-        loadedData.pop(itemIndex)
-        writeFile(loadedData)
-        print('note removed!')
-    else:
-        print('no such note!')
-# removeNote(5)        
-listNotes()
+def edit_note(notes, note_id, title=None, body=None):
+    """Редактирование заметки"""
+    note = get_note_by_id(notes, note_id)
+    if note:
+        note['title'] = title if title else note['title']
+        note['body'] = body if body else note['body']
+        note['updated_at'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        return note
 
-# смотрим заметку
-def viewNoteByID(noteID):
-    loadedData = loadData()
-    rNote = None
-    for note in loadedData:
-        if noteID == loadedData.index(note)+1:
-            rNote = note
-    if(rNote != None):
-        print(str(rNote['id']) +' Title: ' + rNote['title'] + '\n\n' + rNote['body'] + '\n\n'+ rNote['date'] + '\n\n')
-    else:
-        print('note not found!')       
-# viewNoteByID(4) 
-      
 
-#получаем все значения
-f = open('data.json', encoding='utf-8')
-d = f.read()
-data = json.loads(d)  # это list нужно пройти по каждому элементу
-for item in data:
-    for key,value in item.items():
-        print(key, ':', value)
-    print()  
-for vac in data:  # вывести только заголовки
-    print(vac['title'])
-for vac in data:
-        print(vac['date'])  
-print()      
+def delete_note(notes, note_id):
+    """Удаление заметки"""
+    note = get_note_by_id(notes, note_id)
+    if note:
+        notes.remove(note)
+        return note
+
+
+def get_note_by_id(notes, note_id):
+    """Получение заметки по идентификатору"""
+    for note in notes:
+        if note['id'] == note_id:
+            return note
+
+
+def list_notes(notes):
+    """Вывод списка заметок"""
+    for note in notes:
+        print(f"{note['id']} {note['title']} ({note['created_at']})")
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Консольное приложение заметки')
+    parser.add_argument('file_path', type=str, help='Путь к файлу с заметками')
+    subparsers = parser.add_subparsers(dest='command')
+
+    add_parser = subparsers.add_parser('add', help='Добавление новой заметки')
+    add_parser.add_argument('title', type=str, help='Заголовок заметки')
+    add_parser.add_argument('body', type=str, help='Тело заметки')
+
+    edit_parser = subparsers.add_parser('edit', help='Редактирование существующей заметки')
+    edit_parser.add_argument('id', type=int, help='Идентификатор заметки')
+    edit_parser.add_argument('--title', type=str, help='Новый заголовок заметки')
+    edit_parser.add_argument('--body', type=str, help='Новое тело заметки')     
